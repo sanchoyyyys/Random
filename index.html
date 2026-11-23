@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Игровой центр</title>
+<style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+        font-family: system-ui, -apple-system, sans-serif;
+        background: #1a1a2e; color: #e0e0e0;
+        display: flex; flex-direction: column; min-height: 100vh;
+    }
+    header {
+        text-align: center; padding: 24px; background: #16213e;
+        border-bottom: 1px solid #0f3460;
+    }
+    h1 { font-size: 2rem; margin-bottom: 8px; }
+    .container { max-width: 520px; width: 100%; margin: 0 auto; padding: 24px; flex: 1; }
+    .hidden { display: none; }
+    button.back {
+        background: transparent; border: 1px solid #555; margin-bottom: 16px; padding: 8px 16px;
+    }
+    .game-card {
+        padding: 20px; border: 2px solid #0f3460; border-radius: 12px;
+        background: #0f3460; text-align: center; margin-bottom: 16px;
+        transition: border-color 0.2s;
+    }
+    .game-card:hover { border-color: #e94560; }
+    .game-card h3 { margin-bottom: 12px; }
+    button {
+        padding: 12px 24px; font-size: 1.05rem; border: none;
+        border-radius: 8px; background: #0f3460; color: #e0e0e0;
+        cursor: pointer; transition: background 0.2s;
+    }
+    button:hover { background: #e94560; }
+    .board { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 16px 0; }
+    .cell {
+        height: 100px; border: 2px solid #555; border-radius: 8px;
+        font-size: 2.4rem; font-weight: bold;
+        display: flex; align-items: center; justify-content: center;
+        cursor: pointer; user-select: none;
+    }
+    .cell.x { color: #4ade80; }
+    .cell.o { color: #f472b6; }
+    .cell.taken { cursor: default; }
+    .msg { margin: 12px 0; font-size: 1.2rem; min-height: 1.5em; }
+    .msg.win { color: #4ade80; }
+    .msg.draw { color: #fbbf24; }
+    .input-row { display: flex; gap: 12px; margin: 16px 0; }
+    input {
+        flex: 1; padding: 10px; border: 2px solid #555; border-radius: 8px;
+        font-size: 1.1rem; background: #16213e; color: #e0e0e0;
+    }
+</style>
+</head>
+<body>
+
+<header>
+    <h1>🎮 Игровой центр</h1>
+    <p>Всё в одном файле, работает без сервера</p>
+</header>
+
+<div class="container">
+
+    <!-- Меню -->
+    <div id="menu">
+        <div class="game-card">
+            <h3>Крестики-нолики</h3>
+            <p>Два игрока за одним компьютером</p>
+            <button onclick="showGame('tictactoe')">Играть</button>
+        </div>
+        <div class="game-card">
+            <h3>Угадай число</h3>
+            <p>Компьютер загадал число от 1 до 100</p>
+            <button onclick="showGame('guess')">Играть</button>
+        </div>
+    </div>
+
+    <!-- Крестики-нолики -->
+    <div id="tictactoe" class="hidden">
+        <button class="back" onclick="showMenu()">← В меню</button>
+        <div class="board" id="board"></div>
+        <div class="msg" id="tttMsg"></div>
+        <button onclick="resetTTT()">Новая игра</button>
+    </div>
+
+    <!-- Угадай число -->
+    <div id="guess" class="hidden">
+        <button class="back" onclick="showMenu()">← В меню</button>
+        <p>Введите число от 1 до 100:</p>
+        <div class="input-row">
+            <input type="number" id="guessInput" min="1" max="100">
+            <button onclick="checkGuess()">Проверить</button>
+        </div>
+        <div class="msg" id="guessMsg"></div>
+        <button onclick="resetGuess()">Снова</button>
+    </div>
+
+</div>
+
+<script>
+// ---------- Навигация ----------
+function showMenu() {
+    document.getElementById('menu').classList.remove('hidden');
+    ['tictactoe', 'guess'].forEach(id => document.getElementById(id).classList.add('hidden'));
+}
+function showGame(id) {
+    document.getElementById('menu').classList.add('hidden');
+    ['tictactoe', 'guess'].forEach(g => document.getElementById(g).classList.add('hidden'));
+    document.getElementById(id).classList.remove('hidden');
+    if (id === 'tictactoe') resetTTT();
+    if (id === 'guess') resetGuess();
+}
+
+// ---------- Крестики-нолики ----------
+const WINS = [
+    [0,1,2],[3,4,5],[6,7,8],
+    [0,3,6],[1,4,7],[2,5,8],
+    [0,4,8],[2,4,6]
+];
+let board, turn, gameOver;
+
+function resetTTT() {
+    board = Array(9).fill('');
+    turn = 'X';
+    gameOver = false;
+    const msg = document.getElementById('tttMsg');
+    msg.textContent = 'Ходят крестики (X)';
+    msg.className = 'msg';
+    renderBoard();
+}
+
+function renderBoard() {
+    const el = document.getElementById('board');
+    el.innerHTML = '';
+    board.forEach((val, i) => {
+        const cell = document.createElement('div');
+        cell.className = 'cell' + (val ? ' taken ' + val.toLowerCase() : '');
+        cell.textContent = val;
+        cell.addEventListener('click', () => makeMove(i));
+        el.appendChild(cell);
+    });
+}
+
+function makeMove(i) {
+    if (gameOver || board[i]) return;
+    board[i] = turn;
+    const winner = getWinner();
+    const msg = document.getElementById('tttMsg');
+    if (winner) {
+        gameOver = true;
+        msg.textContent = `Победили ${winner === 'X' ? 'крестики' : 'нолики'}! 🎉`;
+        msg.className = 'msg win';
+    } else if (board.every(c => c)) {
+        gameOver = true;
+        msg.textContent = 'Ничья!';
+        msg.className = 'msg draw';
+    } else {
+        turn = turn === 'X' ? 'O' : 'X';
+        msg.textContent = turn === 'X' ? 'Ходят крестики (X)' : 'Ходят нолики (O)';
+    }
+    renderBoard();
+}
+
+function getWinner() {
+    for (const [a, b, c] of WINS) {
+        if (board[a] && board[a] === board[b] && board[b] === board[c]) return board[a];
+    }
+    return null;
+}
+
+// ---------- Угадай число ----------
+let target;
+
+function resetGuess() {
+    target = Math.floor(Math.random() * 100) + 1;
+    const msg = document.getElementById('guessMsg');
+    msg.textContent = '';
+    msg.className = 'msg';
+    document.getElementById('guessInput').value = '';
+    document.getElementById('guessInput').focus();
+}
+
+function checkGuess() {
+    const val = parseInt(document.getElementById('guessInput').value, 10);
+    const msg = document.getElementById('guessMsg');
+    if (isNaN(val) || val < 1 || val > 100) {
+        msg.textContent = 'Введите число от 1 до 100';
+        msg.className = 'msg draw';
+        return;
+    }
+    if (val === target) {
+        msg.textContent = 'Верно! Вы угадали число! 🎉';
+        msg.className = 'msg win';
+    } else {
+        msg.textContent = val < target ? 'Загаданное число больше ⬆' : 'Загаданное число меньше ⬇';
+        msg.className = 'msg';
+    }
+}
+
+// Enter в поле ввода = кнопка «Проверить»
+document.getElementById('guessInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') checkGuess();
+});
+</script>
+
+</body>
+</html>
